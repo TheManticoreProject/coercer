@@ -190,13 +190,15 @@ func RegisterListenerGroup(subparser *parser.ArgumentsParser, listenerInterface 
 //
 //	subparser (*parser.ArgumentsParser): The parser to register the group on.
 //	exportJSON (*string): JSON export file path.
-func RegisterExportGroup(subparser *parser.ArgumentsParser, exportJSON *string) {
+//	exportXLSX (*string): XLSX export file path.
+func RegisterExportGroup(subparser *parser.ArgumentsParser, exportJSON *string, exportXLSX *string) {
 	group, err := subparser.NewArgumentGroup("Export")
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Error creating ArgumentGroup: %s", err))
 		return
 	}
 	group.NewStringArgument(exportJSON, "", "--export-json", "", false, "Export results to JSON file.")
+	group.NewStringArgument(exportXLSX, "", "--export-xlsx", "", false, "Export results to XLSX file.")
 }
 
 // RegisterTimingGroup registers the "Timing" argument group.
