@@ -39,6 +39,7 @@ type Options struct {
 	Filter     filter.Filter
 	Delay      time.Duration
 	ExportJSON string
+	ExportXLSX string
 	Timeout    time.Duration
 	PathIP     string
 }
@@ -194,6 +195,13 @@ func Run(opts Options) []results.FuzzResult {
 
 	if opts.ExportJSON != "" {
 		exportJSON(opts.ExportJSON, opts.Target, allResults)
+	}
+	if opts.ExportXLSX != "" {
+		if err := results.ExportFuzzXLSX(opts.ExportXLSX, allResults); err != nil {
+			logger.Warn(fmt.Sprintf("Cannot write XLSX export: %s", err))
+		} else {
+			logger.Info(fmt.Sprintf("  Results exported to %s", opts.ExportXLSX))
+		}
 	}
 
 	return allResults
