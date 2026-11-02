@@ -1,0 +1,34 @@
+# Binaries
+manticore-coercer
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Build-time docs (never committed)
+.private/*
+
+# Claude skills (never committed in scaffolded tools)
+.claude/*
+
+# Vendored Python reference tool (p0dalirius/Coercer) — reference material only
+Coercer/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
