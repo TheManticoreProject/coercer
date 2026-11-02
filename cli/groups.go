@@ -39,14 +39,15 @@ func DelayDuration(seconds int) time.Duration {
 //	filterProtocol (*[]string): Filter by protocol name.
 //	filterPipe (*[]string): Filter by pipe name.
 //	filterTransport (*[]string): Filter by transport.
+//	pathType (*string): Restrict generated UNC paths to "smb" or "webdav".
 //	delay (*int): Delay between attempts in seconds.
 //	pathIP (*string): IP to substitute into generated exploit paths (overrides the listener IP).
-func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, httpPort *int, dcePorts *[]int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, authKerberos *bool, authDCIP *string, authAESKey *string, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, delay *int, pathIP *string) {
+func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, httpPort *int, dcePorts *[]int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, authKerberos *bool, authDCIP *string, authAESKey *string, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, pathType *string, delay *int, pathIP *string) {
 	RegisterConfigurationGroup(subparser, debug, logFile, disableEscapeCodes)
 	RegisterTargetGroup(subparser, targetHost, targetsFile)
 	RegisterAuthenticationGroup(subparser, authDomain, authUsername, authPassword, authHashes, authNoPass, authKerberos, authDCIP, authAESKey)
 	RegisterConnectionGroup(subparser, smbPort, dcePort, httpPort, dcePorts)
-	RegisterFilterGroup(subparser, filterMethod, filterProtocol, filterPipe, filterTransport)
+	RegisterFilterGroup(subparser, filterMethod, filterProtocol, filterPipe, filterTransport, pathType)
 	RegisterTimingGroup(subparser, delay)
 	RegisterPathGroup(subparser, pathIP)
 }
@@ -157,7 +158,8 @@ func RegisterConnectionGroup(subparser *parser.ArgumentsParser, smbPort *int, dc
 //	filterProtocol (*[]string): Filter by protocol name (substring, case-insensitive).
 //	filterPipe (*[]string): Filter by pipe name (substring, case-insensitive).
 //	filterTransport (*[]string): Filter by transport name.
-func RegisterFilterGroup(subparser *parser.ArgumentsParser, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string) {
+//	pathType (*string): Restrict generated UNC paths to "smb" or "webdav".
+func RegisterFilterGroup(subparser *parser.ArgumentsParser, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, pathType *string) {
 	group, err := subparser.NewArgumentGroup("Filter")
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Error creating ArgumentGroup: %s", err))
@@ -167,6 +169,7 @@ func RegisterFilterGroup(subparser *parser.ArgumentsParser, filterMethod *[]stri
 	group.NewListOfStringsArgument(filterProtocol, "", "--filter-protocol", []string{}, false, "Filter by protocol name.")
 	group.NewListOfStringsArgument(filterPipe, "", "--filter-pipe", []string{}, false, "Filter by pipe name.")
 	group.NewListOfStringsArgument(filterTransport, "", "--filter-transport", []string{}, false, "Filter by transport (msrpc, dcerpc).")
+	group.NewStringArgument(pathType, "", "--path-type", "", false, "Restrict generated UNC paths to smb or webdav (default: both). In scan/fuzz this narrows the listener's --auth-type.")
 }
 
 // RegisterListenerGroup registers the "Listener" argument group for scan/fuzz modes.

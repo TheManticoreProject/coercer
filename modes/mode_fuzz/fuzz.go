@@ -168,6 +168,9 @@ func Run(opts Options) []results.FuzzResult {
 						if opts.AuthType != "http" && ep.AuthType != methods.AuthSMB {
 							continue
 						}
+						if !opts.Filter.MatchExploitPath(ep) {
+							continue
+						}
 
 						exploitPath := methods.RenderPath(ep.Template, vars)
 						authLabel := authSetting.String()
