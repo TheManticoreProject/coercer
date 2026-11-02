@@ -38,6 +38,7 @@ type Options struct {
 	Delay      time.Duration
 	ExportJSON string
 	Timeout    time.Duration
+	PathIP     string
 }
 
 func Run(opts Options) []results.MethodResult {
@@ -73,7 +74,7 @@ func Run(opts Options) []results.MethodResult {
 
 	registry := methods.DefaultRegistry()
 	vars := methods.TemplateVars{
-		ListenerIP: listenIP,
+		ListenerIP: common.EffectivePathIP(opts.PathIP, listenIP),
 		SMBPort:    smbListenPort,
 		HTTPPort:   httpListenPort,
 	}

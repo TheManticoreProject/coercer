@@ -39,13 +39,30 @@ func DelayDuration(seconds int) time.Duration {
 //	filterPipe (*[]string): Filter by pipe name.
 //	filterTransport (*[]string): Filter by transport.
 //	delay (*int): Delay between attempts in seconds.
-func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, delay *int) {
+//	pathIP (*string): IP to substitute into generated exploit paths (overrides the listener IP).
+func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, delay *int, pathIP *string) {
 	RegisterConfigurationGroup(subparser, debug, logFile, disableEscapeCodes)
 	RegisterTargetGroup(subparser, targetHost, targetsFile)
 	RegisterAuthenticationGroup(subparser, authDomain, authUsername, authPassword, authHashes, authNoPass)
 	RegisterConnectionGroup(subparser, smbPort, dcePort)
 	RegisterFilterGroup(subparser, filterMethod, filterProtocol, filterPipe, filterTransport)
 	RegisterTimingGroup(subparser, delay)
+	RegisterPathGroup(subparser, pathIP)
+}
+
+// RegisterPathGroup registers the "Paths" argument group.
+//
+// Parameters:
+//
+//	subparser (*parser.ArgumentsParser): The parser to register the group on.
+//	pathIP (*string): IP to substitute into generated exploit paths (overrides the listener IP).
+func RegisterPathGroup(subparser *parser.ArgumentsParser, pathIP *string) {
+	group, err := subparser.NewArgumentGroup("Paths")
+	if err != nil {
+		logger.Warn(fmt.Sprintf("Error creating ArgumentGroup: %s", err))
+		return
+	}
+	group.NewStringArgument(pathIP, "", "--path-ip", "", false, "IP to place in generated exploit paths (overrides the listener IP).")
 }
 
 // RegisterConfigurationGroup registers the "Configuration" argument group.
