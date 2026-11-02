@@ -23,6 +23,8 @@ func DelayDuration(seconds int) time.Duration {
 //
 //	subparser (*parser.ArgumentsParser): The parser to register the groups on.
 //	debug (*bool): Whether to print debug information.
+//	logFile (*string): Path to additionally write ANSI-stripped output to.
+//	disableEscapeCodes (*bool): Whether to disable ANSI escape codes (colors).
 //	targetHost (*string): Target host IP or hostname.
 //	targetsFile (*string): File with target hosts.
 //	smbPort (*int): SMB port.
@@ -37,8 +39,8 @@ func DelayDuration(seconds int) time.Duration {
 //	filterPipe (*[]string): Filter by pipe name.
 //	filterTransport (*[]string): Filter by transport.
 //	delay (*int): Delay between attempts in seconds.
-func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, delay *int) {
-	RegisterConfigurationGroup(subparser, debug)
+func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, delay *int) {
+	RegisterConfigurationGroup(subparser, debug, logFile, disableEscapeCodes)
 	RegisterTargetGroup(subparser, targetHost, targetsFile)
 	RegisterAuthenticationGroup(subparser, authDomain, authUsername, authPassword, authHashes, authNoPass)
 	RegisterConnectionGroup(subparser, smbPort, dcePort)
@@ -52,13 +54,17 @@ func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, target
 //
 //	subparser (*parser.ArgumentsParser): The parser to register the group on.
 //	debug (*bool): Whether to print debug information.
-func RegisterConfigurationGroup(subparser *parser.ArgumentsParser, debug *bool) {
+//	logFile (*string): Path to additionally write ANSI-stripped output to.
+//	disableEscapeCodes (*bool): Whether to disable ANSI escape codes (colors).
+func RegisterConfigurationGroup(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool) {
 	group, err := subparser.NewArgumentGroup("Configuration")
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Error creating ArgumentGroup: %s", err))
 		return
 	}
 	group.NewBoolArgument(debug, "", "--debug", false, "Debug mode.")
+	group.NewStringArgument(logFile, "", "--log-file", "", false, "Also write output (ANSI-stripped) to this log file.")
+	group.NewBoolArgument(disableEscapeCodes, "", "--disable-escape-codes", false, "Disable ANSI escape codes (colors) in output.")
 }
 
 // RegisterTargetGroup registers the "Target" argument group.
