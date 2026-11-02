@@ -20,8 +20,10 @@ import (
 )
 
 var (
-	mode  string
-	debug bool
+	mode               string
+	debug              bool
+	logFile            string
+	disableEscapeCodes bool
 
 	// Authentication
 	authDomain   string
@@ -83,12 +85,12 @@ func parseArgs() {
 
 	// --- list ---
 	subList := ap.AddSubParser("list", "List available coercion methods and access paths.")
-	cli.RegisterConfigurationGroup(subList, &debug)
+	cli.RegisterConfigurationGroup(subList, &debug, &logFile, &disableEscapeCodes)
 	registerListOptions(subList)
 
 	// --- scan ---
 	subScan := ap.AddSubParser("scan", "Scan for vulnerable coercion methods with known exploit paths.")
-	cli.RegisterCommonGroups(subScan, &debug, &targetHost, &targetsFile, &smbPort, &dcePort, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay)
+	cli.RegisterCommonGroups(subScan, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay)
 	cli.RegisterListenerGroup(subScan, &scanListenerInterface, &scanListenerIP, &scanAuthType)
 	cli.RegisterExportGroup(subScan, &scanExportJSON)
 	registerScanOptions(subScan)
@@ -96,14 +98,14 @@ func parseArgs() {
 
 	// --- coerce ---
 	subCoerce := ap.AddSubParser("coerce", "Trigger authentication coercion to an external listener.")
-	cli.RegisterCommonGroups(subCoerce, &debug, &targetHost, &targetsFile, &smbPort, &dcePort, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay)
+	cli.RegisterCommonGroups(subCoerce, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay)
 	cli.RegisterExportGroup(subCoerce, &coerceExportJSON)
 	registerCoerceOptions(subCoerce)
 	registerConnectionOptions(subCoerce)
 
 	// --- fuzz ---
 	subFuzz := ap.AddSubParser("fuzz", "Fuzz exploit paths and auth levels against all methods.")
-	cli.RegisterCommonGroups(subFuzz, &debug, &targetHost, &targetsFile, &smbPort, &dcePort, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay)
+	cli.RegisterCommonGroups(subFuzz, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay)
 	cli.RegisterListenerGroup(subFuzz, &fuzzListenerInterface, &fuzzListenerIP, &fuzzAuthType)
 	cli.RegisterExportGroup(subFuzz, &fuzzExportJSON)
 	registerFuzzOptions(subFuzz)
@@ -164,6 +166,15 @@ func registerConnectionOptions(subparser *parser.ArgumentsParser) {
 
 func main() {
 	parseArgs()
+
+	if disableEscapeCodes {
+		logger.SetNoColors(true)
+	}
+	if logFile != "" {
+		if err := logger.LogToFile(logFile); err != nil {
+			logger.Warn(fmt.Sprintf("Cannot open log file: %s", err))
+		}
+	}
 
 	if !debug {
 		logger.SetLevel(logger.LevelInfo)
