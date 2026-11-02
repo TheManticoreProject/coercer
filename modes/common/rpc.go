@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	epmclient "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/e1af8308-5d1f-11c9-91a4-08002b14a0fa/3.0/epmclient"
 	dcerpcclient "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/client"
 	"github.com/TheManticoreProject/Manticore/network/dcerpc/v5/pdu"
 	smbtransport "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/transport/smb"
@@ -17,10 +18,71 @@ import (
 )
 
 type ConnectOpts struct {
-	Target  string
-	SMBPort int
-	DCEPort int
-	Timeout time.Duration
+	Target   string
+	SMBPort  int
+	DCEPort  int
+	DCEPorts []int
+	Timeout  time.Duration
+}
+
+const defaultEPMPort = 135
+
+// candidateTCPPorts returns the TCP ports to try for a given access. For
+// non-TCP transports it returns a single placeholder (the port is unused by the
+// named-pipe path). For TCP it prefers an explicit --dce-ports list; otherwise
+// it resolves the interface's dynamic port(s) via the endpoint mapper, falling
+// back to the configured DCE port when EPM resolution yields nothing.
+func candidateTCPPorts(opts ConnectOpts, access methods.Access) []int {
+	if access.Transport != methods.TransportTCP {
+		return []int{opts.DCEPort}
+	}
+	if len(opts.DCEPorts) > 0 {
+		return opts.DCEPorts
+	}
+	if ports := epmResolvePorts(opts, access); len(ports) > 0 {
+		return ports
+	}
+	return []int{opts.DCEPort}
+}
+
+// epmResolvePorts queries the endpoint mapper on the target for the dynamic
+// ncacn_ip_tcp port(s) of the access's interface syntaxes. It returns nil on
+// any failure (callers fall back to the configured DCE port).
+func epmResolvePorts(opts ConnectOpts, access methods.Access) []int {
+	if len(access.Syntaxes) == 0 {
+		return nil
+	}
+	mapperPort := opts.DCEPort
+	if mapperPort == 0 {
+		mapperPort = defaultEPMPort
+	}
+
+	epm := epmclient.NewOverTCP(opts.Target, mapperPort, opts.Timeout)
+	if err := epm.Connect(); err != nil {
+		return nil
+	}
+	defer epm.Close()
+
+	var ports []int
+	seen := make(map[int]struct{})
+	for _, syn := range access.Syntaxes {
+		endpoints, err := epm.Map(syn.UUID, syn.MajorVersion, syn.MinorVersion)
+		if err != nil {
+			continue
+		}
+		for _, ep := range endpoints {
+			p := int(ep.Port)
+			if p == 0 {
+				continue
+			}
+			if _, ok := seen[p]; ok {
+				continue
+			}
+			seen[p] = struct{}{}
+			ports = append(ports, p)
+		}
+	}
+	return ports
 }
 
 func Connect(opts ConnectOpts, access methods.Access, creds *credentials.Credentials) (*dcerpcclient.Client, func(), error) {
@@ -116,26 +178,34 @@ func IsUnknownInterface(err error) bool {
 }
 
 func TryTrigger(connOpts ConnectOpts, m methods.Method, access methods.Access, exploitPath string, creds *credentials.Credentials) methods.TriggerResult {
-	for _, syn := range access.Syntaxes {
-		rpcClient, cleanup, err := Connect(connOpts, access, creds)
-		if err != nil {
-			return methods.TriggerResult{Faulted: true, Err: err}
-		}
-
-		if err := rpcClient.Bind(syn); err != nil {
-			cleanup()
-			if IsUnknownInterface(err) {
-				continue
+	lastErr := fmt.Errorf("no accepted interface syntax")
+	for _, port := range candidateTCPPorts(connOpts, access) {
+		o := connOpts
+		o.DCEPort = port
+		for _, syn := range access.Syntaxes {
+			rpcClient, cleanup, err := Connect(o, access, creds)
+			if err != nil {
+				lastErr = err
+				break // connection failed on this port; try the next candidate port
 			}
-			return methods.TriggerResult{Faulted: true, Err: fmt.Errorf("bind %s: %w", syn, err)}
-		}
 
-		result := m.Trigger(rpcClient, connOpts.Target, exploitPath)
-		cleanup()
-		return result
+			if err := rpcClient.Bind(syn); err != nil {
+				cleanup()
+				if IsUnknownInterface(err) {
+					lastErr = err
+					continue // try the next interface syntax on this port
+				}
+				lastErr = fmt.Errorf("bind %s: %w", syn, err)
+				break // try the next candidate port
+			}
+
+			result := m.Trigger(rpcClient, o.Target, exploitPath)
+			cleanup()
+			return result
+		}
 	}
 
-	return methods.TriggerResult{Faulted: true, Err: fmt.Errorf("no accepted interface syntax")}
+	return methods.TriggerResult{Faulted: true, Err: lastErr}
 }
 
 func ConnectWithAuth(opts ConnectOpts, access methods.Access, authOverride methods.RPCAuthSetting, creds *credentials.Credentials) (*dcerpcclient.Client, func(), error) {
@@ -150,27 +220,34 @@ func ConnectWithAuth(opts ConnectOpts, access methods.Access, authOverride metho
 }
 
 func TryTriggerWithAuth(connOpts ConnectOpts, m methods.Method, access methods.Access, authOverride methods.RPCAuthSetting, exploitPath string, creds *credentials.Credentials) (trigger methods.TriggerResult, bindErr error) {
-	for _, syn := range access.Syntaxes {
-		rpcClient, cleanup, err := ConnectWithAuth(connOpts, access, authOverride, creds)
-		if err != nil {
-			return methods.TriggerResult{Faulted: true, Err: err}, err
-		}
-
-		if err := rpcClient.Bind(syn); err != nil {
-			cleanup()
-			if IsUnknownInterface(err) {
-				continue
+	lastErr := fmt.Errorf("no accepted interface syntax")
+	for _, port := range candidateTCPPorts(connOpts, access) {
+		o := connOpts
+		o.DCEPort = port
+		for _, syn := range access.Syntaxes {
+			rpcClient, cleanup, err := ConnectWithAuth(o, access, authOverride, creds)
+			if err != nil {
+				lastErr = err
+				break // connection failed on this port; try the next candidate port
 			}
-			return methods.TriggerResult{Faulted: true, Err: err}, err
-		}
 
-		result := m.Trigger(rpcClient, connOpts.Target, exploitPath)
-		cleanup()
-		return result, nil
+			if err := rpcClient.Bind(syn); err != nil {
+				cleanup()
+				if IsUnknownInterface(err) {
+					lastErr = err
+					continue // try the next interface syntax on this port
+				}
+				lastErr = err
+				break // try the next candidate port
+			}
+
+			result := m.Trigger(rpcClient, o.Target, exploitPath)
+			cleanup()
+			return result, nil
+		}
 	}
 
-	noSyn := fmt.Errorf("no accepted interface syntax")
-	return methods.TriggerResult{Faulted: true, Err: noSyn}, noSyn
+	return methods.TriggerResult{Faulted: true, Err: lastErr}, lastErr
 }
 
 func ResolveListenIP(iface, explicit string) (string, error) {
