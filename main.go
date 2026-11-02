@@ -43,6 +43,8 @@ var (
 	smbPort     int
 	dcePort     int
 	httpPort    int
+	minHTTPPort int
+	maxHTTPPort int
 	dcePorts    []int
 	connTimeout int
 
@@ -105,7 +107,7 @@ func parseArgs() {
 
 	// --- scan ---
 	subScan := ap.AddSubParser("scan", "Scan for vulnerable coercion methods with known exploit paths.")
-	cli.RegisterCommonGroups(subScan, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
+	cli.RegisterCommonGroups(subScan, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
 	cli.RegisterListenerGroup(subScan, &scanListenerInterface, &scanListenerIP, &scanAuthType)
 	cli.RegisterExportGroup(subScan, &scanExportJSON, &scanExportXLSX, &scanExportSQLite)
 	registerScanOptions(subScan)
@@ -113,14 +115,14 @@ func parseArgs() {
 
 	// --- coerce ---
 	subCoerce := ap.AddSubParser("coerce", "Trigger authentication coercion to an external listener.")
-	cli.RegisterCommonGroups(subCoerce, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
+	cli.RegisterCommonGroups(subCoerce, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
 	cli.RegisterExportGroup(subCoerce, &coerceExportJSON, &coerceExportXLSX, &coerceExportSQLite)
 	registerCoerceOptions(subCoerce)
 	registerConnectionOptions(subCoerce)
 
 	// --- fuzz ---
 	subFuzz := ap.AddSubParser("fuzz", "Fuzz exploit paths and auth levels against all methods.")
-	cli.RegisterCommonGroups(subFuzz, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
+	cli.RegisterCommonGroups(subFuzz, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
 	cli.RegisterListenerGroup(subFuzz, &fuzzListenerInterface, &fuzzListenerIP, &fuzzAuthType)
 	cli.RegisterExportGroup(subFuzz, &fuzzExportJSON, &fuzzExportXLSX, &fuzzExportSQLite)
 	registerFuzzOptions(subFuzz)
@@ -214,6 +216,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if (minHTTPPort > 0) != (maxHTTPPort > 0) {
+		logger.Warn("--min-http-port and --max-http-port must be given together.")
+		os.Exit(1)
+	}
+	if minHTTPPort > 0 && minHTTPPort > maxHTTPPort {
+		logger.Warn(fmt.Sprintf("--min-http-port (%d) must not exceed --max-http-port (%d).", minHTTPPort, maxHTTPPort))
+		os.Exit(1)
+	}
+
 	if err := cli.ResolvePassword(authDomain, authUsername, &authPassword, authNoPass, authHashes); err != nil {
 		logger.Warn(err.Error())
 		os.Exit(1)
@@ -260,6 +271,8 @@ func main() {
 				DCEPort:           dcePort,
 				DCEPorts:          dcePorts,
 				HTTPPort:          httpPort,
+				MinHTTPPort:       minHTTPPort,
+				MaxHTTPPort:       maxHTTPPort,
 				Filter:            f,
 				Delay:             cli.DelayDuration(delay),
 				ExportJSON:        scanExportJSON,
@@ -329,6 +342,8 @@ func main() {
 				DCEPort:           dcePort,
 				DCEPorts:          dcePorts,
 				HTTPPort:          httpPort,
+				MinHTTPPort:       minHTTPPort,
+				MaxHTTPPort:       maxHTTPPort,
 				Filter:            f,
 				Delay:             cli.DelayDuration(delay),
 				ExportJSON:        fuzzExportJSON,
