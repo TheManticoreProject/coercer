@@ -2,10 +2,20 @@ package cli
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/TheManticoreProject/Manticore/logger"
 	"github.com/TheManticoreProject/goopts/parser"
 )
+
+// DelayDuration converts a --delay value expressed in seconds into a
+// time.Duration. Non-positive values yield a zero duration (no delay).
+func DelayDuration(seconds int) time.Duration {
+	if seconds <= 0 {
+		return 0
+	}
+	return time.Duration(seconds) * time.Second
+}
 
 // RegisterCommonGroups attaches the groups that every mode shares.
 //
@@ -26,7 +36,7 @@ import (
 //	filterProtocol (*[]string): Filter by protocol name.
 //	filterPipe (*[]string): Filter by pipe name.
 //	filterTransport (*[]string): Filter by transport.
-//	delay (*int): Delay between attempts in milliseconds.
+//	delay (*int): Delay between attempts in seconds.
 func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, delay *int) {
 	RegisterConfigurationGroup(subparser, debug)
 	RegisterTargetGroup(subparser, targetHost, targetsFile)
@@ -168,12 +178,12 @@ func RegisterExportGroup(subparser *parser.ArgumentsParser, exportJSON *string) 
 // Parameters:
 //
 //	subparser (*parser.ArgumentsParser): The parser to register the group on.
-//	delay (*int): Delay between attempts in milliseconds.
+//	delay (*int): Delay between attempts in seconds.
 func RegisterTimingGroup(subparser *parser.ArgumentsParser, delay *int) {
 	group, err := subparser.NewArgumentGroup("Timing")
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Error creating ArgumentGroup: %s", err))
 		return
 	}
-	group.NewIntArgument(delay, "", "--delay", 0, false, "Delay between attempts in milliseconds.")
+	group.NewIntArgument(delay, "", "--delay", 0, false, "Delay between attempts in seconds.")
 }

@@ -224,7 +224,7 @@ func main() {
 				SMBPort:           smbPort,
 				DCEPort:           dcePort,
 				Filter:            f,
-				Delay:             time.Duration(delay) * time.Millisecond,
+				Delay:             cli.DelayDuration(delay),
 				ExportJSON:        scanExportJSON,
 				Timeout:           timeout,
 			})
@@ -249,7 +249,7 @@ func main() {
 				SMBPort:        smbPort,
 				DCEPort:        dcePort,
 				Filter:         f,
-				Delay:          time.Duration(delay) * time.Millisecond,
+				Delay:          cli.DelayDuration(delay),
 				ExportJSON:     coerceExportJSON,
 				Timeout:        timeout,
 			})
@@ -277,7 +277,7 @@ func main() {
 				SMBPort:           smbPort,
 				DCEPort:           dcePort,
 				Filter:            f,
-				Delay:             time.Duration(delay) * time.Millisecond,
+				Delay:             cli.DelayDuration(delay),
 				ExportJSON:        fuzzExportJSON,
 				Timeout:           timeout,
 			})
