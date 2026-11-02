@@ -6,11 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TheManticoreProject/Manticore/logger"
 	epmclient "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/e1af8308-5d1f-11c9-91a4-08002b14a0fa/3.0/epmclient"
 	dcerpcclient "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/client"
 	"github.com/TheManticoreProject/Manticore/network/dcerpc/v5/pdu"
 	smbtransport "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/transport/smb"
 	tcptransport "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/transport/tcp"
+	kerberos "github.com/TheManticoreProject/Manticore/network/kerberos/v5"
 	smbclient "github.com/TheManticoreProject/Manticore/network/smb/smb_v10/client"
 	"github.com/TheManticoreProject/Manticore/windows/credentials"
 
@@ -23,6 +25,94 @@ type ConnectOpts struct {
 	DCEPort  int
 	DCEPorts []int
 	Timeout  time.Duration
+
+	// Kerberos, when non-nil, makes RPC binds authenticate with Kerberos using
+	// this (already identity/secret-configured) client against SPN; otherwise
+	// binds use NTLMSSP.
+	Kerberos *kerberos.KerberosClient
+	SPN      string
+}
+
+// NewKerberosClient builds a Kerberos client from the given credentials,
+// mirroring the secret-priority order used by Manticore's SMB client: ccache,
+// kirbi, keytab, AES key, NT hash (RC4/overpass-the-hash), password, and finally
+// a ccache from KRB5CCNAME. kdcHost is the KDC/domain-controller address; when
+// empty the realm is resolved via DNS-SRV.
+func NewKerberosClient(creds *credentials.Credentials, kdcHost string) (*kerberos.KerberosClient, error) {
+	kc := kerberos.NewClient(creds.GetUsername(), strings.ToUpper(creds.GetDomain()), kdcHost)
+	switch {
+	case creds.CanUseCCache():
+		if err := kc.LoadTGTFromCCacheFile(creds.GetCCache()); err != nil {
+			return nil, fmt.Errorf("load ccache: %w", err)
+		}
+	case creds.CanUseKirbi():
+		if err := kc.LoadTGTFromKirbiFile(creds.GetKirbi()); err != nil {
+			return nil, fmt.Errorf("load kirbi: %w", err)
+		}
+	case creds.CanUseKeytab():
+		if err := kc.WithKeytabFile(creds.GetKeytab()); err != nil {
+			return nil, fmt.Errorf("load keytab: %w", err)
+		}
+	case creds.CanUseAESKey():
+		if err := kc.WithAESKey(creds.GetAESKey()); err != nil {
+			return nil, fmt.Errorf("set AES key: %w", err)
+		}
+	case creds.CanPassTheHash():
+		if err := kc.WithNTHash(creds.GetNTHash()); err != nil {
+			return nil, fmt.Errorf("set NT hash: %w", err)
+		}
+	case creds.GetPassword() != "":
+		kc.WithPassword(creds.GetPassword())
+	default:
+		if err := kc.LoadTGTFromCCacheEnv(); err != nil {
+			return nil, fmt.Errorf("no Kerberos secret provided and no usable KRB5CCNAME ccache: %w", err)
+		}
+	}
+	return kc, nil
+}
+
+// ConfigureKerberos enables Kerberos RPC authentication on connOpts when
+// requested: it applies the AES key to creds, builds the Kerberos client, and
+// derives the target SPN (host/<target>). It is a no-op when enabled is false.
+func ConfigureKerberos(connOpts *ConnectOpts, creds *credentials.Credentials, enabled bool, kdcHost, aesKey string) error {
+	if !enabled {
+		return nil
+	}
+	if aesKey != "" {
+		if err := creds.SetAESKey(aesKey); err != nil {
+			return fmt.Errorf("invalid AES key: %w", err)
+		}
+	}
+	if net.ParseIP(connOpts.Target) != nil {
+		logger.Warn("Kerberos requires an FQDN target; an IP address will fail SPN resolution at the KDC.")
+	}
+	kc, err := NewKerberosClient(creds, kdcHost)
+	if err != nil {
+		return err
+	}
+	connOpts.Kerberos = kc
+	connOpts.SPN = "host/" + connOpts.Target
+	return nil
+}
+
+// applyRPCAuth configures the RPC client's authentication for an access,
+// choosing Kerberos when a Kerberos client is present, otherwise NTLMSSP. It is
+// a no-op for accesses that forbid auth or declare no auth type.
+func applyRPCAuth(rpcClient *dcerpcclient.Client, opts ConnectOpts, access methods.Access, creds *credentials.Credentials) error {
+	if access.ForbidAuth {
+		return nil
+	}
+	if opts.Kerberos != nil {
+		authLevel := access.DefaultAuth.AuthLevel
+		if authLevel == 0 {
+			authLevel = pdu.AuthLevelPktPrivacy
+		}
+		return rpcClient.SetAuthKerberos(authLevel, opts.Kerberos, opts.SPN)
+	}
+	if access.DefaultAuth.AuthType != 0 {
+		return rpcClient.SetAuth(access.DefaultAuth.AuthType, access.DefaultAuth.AuthLevel, creds)
+	}
+	return nil
 }
 
 const defaultEPMPort = 135
@@ -132,13 +222,11 @@ func connectNamedPipe(opts ConnectOpts, access methods.Access, creds *credential
 	transport := smbtransport.New(smb, pipeName)
 	rpcClient := dcerpcclient.NewClient(transport)
 
-	if !access.ForbidAuth && access.DefaultAuth.AuthType != 0 {
-		if err := rpcClient.SetAuth(access.DefaultAuth.AuthType, access.DefaultAuth.AuthLevel, creds); err != nil {
-			smb.TreeDisconnect()
-			smb.Logoff()
-			smb.Disconnect()
-			return nil, nil, fmt.Errorf("rpc auth: %w", err)
-		}
+	if err := applyRPCAuth(rpcClient, opts, access, creds); err != nil {
+		smb.TreeDisconnect()
+		smb.Logoff()
+		smb.Disconnect()
+		return nil, nil, fmt.Errorf("rpc auth: %w", err)
 	}
 
 	cleanup := func() {
@@ -157,10 +245,8 @@ func connectTCP(opts ConnectOpts, access methods.Access, creds *credentials.Cred
 	}
 	rpcClient := dcerpcclient.NewClient(transport)
 
-	if !access.ForbidAuth && access.DefaultAuth.AuthType != 0 {
-		if err := rpcClient.SetAuth(access.DefaultAuth.AuthType, access.DefaultAuth.AuthLevel, creds); err != nil {
-			return nil, nil, fmt.Errorf("rpc auth: %w", err)
-		}
+	if err := applyRPCAuth(rpcClient, opts, access, creds); err != nil {
+		return nil, nil, fmt.Errorf("rpc auth: %w", err)
 	}
 
 	cleanup := func() {

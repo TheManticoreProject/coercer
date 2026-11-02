@@ -30,6 +30,9 @@ type Options struct {
 	Username string
 	Password string
 	Hashes   string
+	Kerberos bool
+	KDCHost  string
+	AESKey   string
 
 	SMBPort  int
 	DCEPort  int
@@ -93,11 +96,16 @@ func Run(opts Options) []results.MethodResult {
 	}
 
 	connOpts := common.ConnectOpts{
-		Target:  opts.Target,
-		SMBPort: opts.SMBPort,
-		DCEPort: opts.DCEPort,
+		Target:   opts.Target,
+		SMBPort:  opts.SMBPort,
+		DCEPort:  opts.DCEPort,
 		DCEPorts: opts.DCEPorts,
-		Timeout: opts.Timeout,
+		Timeout:  opts.Timeout,
+	}
+
+	if err := common.ConfigureKerberos(&connOpts, creds, opts.Kerberos, opts.KDCHost, opts.AESKey); err != nil {
+		logger.Warn(fmt.Sprintf("Kerberos setup failed: %s", err))
+		return nil
 	}
 
 	var allResults []results.MethodResult

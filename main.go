@@ -31,6 +31,9 @@ var (
 	authPassword string
 	authHashes   string
 	authNoPass   bool
+	authKerberos bool
+	authDCIP     string
+	authAESKey   string
 
 	// Target
 	targetHost  string
@@ -101,7 +104,7 @@ func parseArgs() {
 
 	// --- scan ---
 	subScan := ap.AddSubParser("scan", "Scan for vulnerable coercion methods with known exploit paths.")
-	cli.RegisterCommonGroups(subScan, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
+	cli.RegisterCommonGroups(subScan, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
 	cli.RegisterListenerGroup(subScan, &scanListenerInterface, &scanListenerIP, &scanAuthType)
 	cli.RegisterExportGroup(subScan, &scanExportJSON, &scanExportXLSX, &scanExportSQLite)
 	registerScanOptions(subScan)
@@ -109,14 +112,14 @@ func parseArgs() {
 
 	// --- coerce ---
 	subCoerce := ap.AddSubParser("coerce", "Trigger authentication coercion to an external listener.")
-	cli.RegisterCommonGroups(subCoerce, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
+	cli.RegisterCommonGroups(subCoerce, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
 	cli.RegisterExportGroup(subCoerce, &coerceExportJSON, &coerceExportXLSX, &coerceExportSQLite)
 	registerCoerceOptions(subCoerce)
 	registerConnectionOptions(subCoerce)
 
 	// --- fuzz ---
 	subFuzz := ap.AddSubParser("fuzz", "Fuzz exploit paths and auth levels against all methods.")
-	cli.RegisterCommonGroups(subFuzz, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
+	cli.RegisterCommonGroups(subFuzz, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
 	cli.RegisterListenerGroup(subFuzz, &fuzzListenerInterface, &fuzzListenerIP, &fuzzAuthType)
 	cli.RegisterExportGroup(subFuzz, &fuzzExportJSON, &fuzzExportXLSX, &fuzzExportSQLite)
 	registerFuzzOptions(subFuzz)
@@ -240,6 +243,9 @@ func main() {
 				ListenerInterface: scanListenerInterface,
 				ListenerIP:        scanListenerIP,
 				Domain:            authDomain,
+				Kerberos:          authKerberos,
+				KDCHost:           authDCIP,
+				AESKey:            authAESKey,
 				Username:          authUsername,
 				Password:          authPassword,
 				Hashes:            authHashes,
@@ -270,6 +276,9 @@ func main() {
 				ListenerIP:     coerceListenerIP,
 				AlwaysContinue: coerceAlwaysContinue,
 				Domain:         authDomain,
+				Kerberos:       authKerberos,
+				KDCHost:        authDCIP,
+				AESKey:         authAESKey,
 				Username:       authUsername,
 				Password:       authPassword,
 				Hashes:         authHashes,
@@ -303,6 +312,9 @@ func main() {
 				ListenerInterface: fuzzListenerInterface,
 				ListenerIP:        fuzzListenerIP,
 				Domain:            authDomain,
+				Kerberos:          authKerberos,
+				KDCHost:           authDCIP,
+				AESKey:            authAESKey,
 				Username:          authUsername,
 				Password:          authPassword,
 				Hashes:            authHashes,
