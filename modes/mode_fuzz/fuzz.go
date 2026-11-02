@@ -104,6 +104,15 @@ func Run(opts Options) []results.FuzzResult {
 		authSettings = methods.AllRPCAuthSettings()
 	}
 
+	// Determine the set of SMB named pipes to fuzz each interface against. Over
+	// an authenticated session this is the live list of pipes on the target;
+	// anonymously (or on failure) it falls back to a built-in known-pipe list.
+	// Not used for the HTTP capture path.
+	var fuzzPipes []string
+	if opts.AuthType != "http" {
+		fuzzPipes = resolveFuzzPipes(connOpts, creds, opts)
+	}
+
 	var allResults []results.FuzzResult
 
 	for _, m := range registry.All() {
@@ -112,81 +121,98 @@ func Run(opts Options) []results.FuzzResult {
 		}
 
 		for _, access := range m.Access {
-			if !opts.Filter.MatchAccess(access) {
+			if !opts.Filter.MatchTransport(access) {
 				continue
+			}
+
+			// For named-pipe transports, fuzz the interface across every pipe in
+			// the resolved set; otherwise honor the pipe filter on the default
+			// pipe and try only that one.
+			usingFuzzSet := access.Transport == methods.TransportNamedPipe && opts.AuthType != "http" && len(fuzzPipes) > 0
+			if !usingFuzzSet && !opts.Filter.MatchPipe(access.Pipe) {
+				continue
+			}
+			pipesToTry := []string{access.Pipe}
+			if usingFuzzSet {
+				pipesToTry = fuzzPipes
 			}
 
 			exploitPaths := selectPaths(m, opts, vars)
 
-			for _, authSetting := range authSettings {
-				if !opts.FuzzAuth {
-					authSetting = access.DefaultAuth
-				}
-				if access.ForbidAuth && authSetting.AuthType != 0 {
-					continue
-				}
+			for _, pipe := range pipesToTry {
+				accessN := access
+				accessN.Pipe = pipe
 
-				for _, ep := range exploitPaths {
-					if opts.AuthType == "http" && ep.AuthType != methods.AuthHTTP {
-						continue
+				for _, authSetting := range authSettings {
+					if !opts.FuzzAuth {
+						authSetting = accessN.DefaultAuth
 					}
-					if opts.AuthType != "http" && ep.AuthType != methods.AuthSMB {
+					if accessN.ForbidAuth && authSetting.AuthType != 0 {
 						continue
 					}
 
-					exploitPath := methods.RenderPath(ep.Template, vars)
-					authLabel := authSetting.String()
-					logger.Info(fmt.Sprintf("    [%s] %s", authLabel, m.FormatCall(exploitPath)))
+					for _, ep := range exploitPaths {
+						if opts.AuthType == "http" && ep.AuthType != methods.AuthHTTP {
+							continue
+						}
+						if opts.AuthType != "http" && ep.AuthType != methods.AuthSMB {
+							continue
+						}
 
-					var trigger methods.TriggerResult
-					var bindErr error
+						exploitPath := methods.RenderPath(ep.Template, vars)
+						authLabel := authSetting.String()
+						logger.Info(fmt.Sprintf("    [%s] %s", authLabel, m.FormatCall(exploitPath)))
 
-					if opts.FuzzAuth {
-						trigger, bindErr = common.TryTriggerWithAuth(connOpts, m, access, authSetting, exploitPath, creds)
-					} else {
-						trigger = common.TryTrigger(connOpts, m, access, exploitPath, creds)
-					}
+						var trigger methods.TriggerResult
+						var bindErr error
 
-					outcome := results.ClassifyOutcome(trigger)
-
-					fr := results.FuzzResult{
-						MethodResult: results.MethodResult{
-							Target:      opts.Target,
-							Transport:   access.Transport.String(),
-							Pipe:        access.Pipe,
-							Protocol:    m.Protocol,
-							Function:    m.Function,
-							Opnum:       m.Opnum,
-							ExploitPath: exploitPath,
-							Trigger:     trigger,
-							Outcome:     outcome,
-						},
-						AuthSetting: authSetting,
-						BindError:   bindErr,
-					}
-
-					printResult(fr)
-
-					if outcome == results.OutcomeSuccess || outcome == results.OutcomePathResolved {
-						auth := waitForAuth(lis)
-						if auth != nil {
-							fr.Auth = auth
-							logger.Info(fmt.Sprintf("      \x1b[92m[+]\x1b[0m Auth captured: %s\\%s (NTLMv%d) from %s",
-								auth.Domain, auth.Username, auth.NTLMVersion, auth.FromAddr))
+						if opts.FuzzAuth {
+							trigger, bindErr = common.TryTriggerWithAuth(connOpts, m, accessN, authSetting, exploitPath, creds)
 						} else {
-							logger.Info("      \x1b[90m[-]\x1b[0m No auth received")
+							trigger = common.TryTrigger(connOpts, m, accessN, exploitPath, creds)
+						}
+
+						outcome := results.ClassifyOutcome(trigger)
+
+						fr := results.FuzzResult{
+							MethodResult: results.MethodResult{
+								Target:      opts.Target,
+								Transport:   accessN.Transport.String(),
+								Pipe:        accessN.Pipe,
+								Protocol:    m.Protocol,
+								Function:    m.Function,
+								Opnum:       m.Opnum,
+								ExploitPath: exploitPath,
+								Trigger:     trigger,
+								Outcome:     outcome,
+							},
+							AuthSetting: authSetting,
+							BindError:   bindErr,
+						}
+
+						printResult(fr)
+
+						if outcome == results.OutcomeSuccess || outcome == results.OutcomePathResolved {
+							auth := waitForAuth(lis)
+							if auth != nil {
+								fr.Auth = auth
+								logger.Info(fmt.Sprintf("      \x1b[92m[+]\x1b[0m Auth captured: %s\\%s (NTLMv%d) from %s",
+									auth.Domain, auth.Username, auth.NTLMVersion, auth.FromAddr))
+							} else {
+								logger.Info("      \x1b[90m[-]\x1b[0m No auth received")
+							}
+						}
+
+						allResults = append(allResults, fr)
+
+						if opts.Delay > 0 {
+							time.Sleep(opts.Delay)
 						}
 					}
 
-					allResults = append(allResults, fr)
-
-					if opts.Delay > 0 {
-						time.Sleep(opts.Delay)
+					if !opts.FuzzAuth {
+						break
 					}
-				}
-
-				if !opts.FuzzAuth {
-					break
 				}
 			}
 		}
@@ -213,6 +239,34 @@ func Run(opts Options) []results.FuzzResult {
 	}
 
 	return allResults
+}
+
+// resolveFuzzPipes returns the SMB named pipes to fuzz interfaces against,
+// filtered by --filter-pipe. Authenticated sessions enumerate the target's live
+// pipes; anonymous sessions (or enumeration failures) use the built-in list.
+func resolveFuzzPipes(connOpts common.ConnectOpts, creds *credentials.Credentials, opts Options) []string {
+	var pipes []string
+	if opts.Username == "" {
+		logger.Info("  Cannot list SMB pipes anonymously; using built-in known-pipe list.")
+		pipes = common.KnownNamedPipes()
+	} else if listed, err := common.ListRemotePipes(connOpts, creds); err != nil {
+		logger.Warn(fmt.Sprintf("  Could not list remote pipes (%s); using built-in known-pipe list.", err))
+		pipes = common.KnownNamedPipes()
+	} else {
+		logger.Info(fmt.Sprintf("  Found %d SMB named pipe(s) on the target.", len(listed)))
+		pipes = listed
+	}
+
+	var kept []string
+	for _, p := range pipes {
+		if opts.Filter.MatchPipe(p) {
+			kept = append(kept, p)
+		}
+	}
+	if len(kept) == 0 && len(opts.Filter.PipeNames) > 0 {
+		logger.Warn("  No resolved pipes matched --filter-pipe; falling back to per-method default pipes.")
+	}
+	return kept
 }
 
 func selectPaths(m methods.Method, opts Options, vars methods.TemplateVars) []methods.ExploitPath {

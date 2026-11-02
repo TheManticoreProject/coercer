@@ -26,17 +26,23 @@ func (f *Filter) MatchMethod(m methods.Method) bool {
 }
 
 func (f *Filter) MatchAccess(a methods.Access) bool {
-	if !f.matchStrings(f.PipeNames, a.Pipe) {
-		return false
+	return f.MatchPipe(a.Pipe) && f.MatchTransport(a)
+}
+
+// MatchTransport reports whether an access passes the transport-name filter,
+// ignoring the pipe name.
+func (f *Filter) MatchTransport(a methods.Access) bool {
+	if len(f.TransportNames) == 0 {
+		return true
 	}
-	if len(f.TransportNames) > 0 {
-		transportStr := a.Transport.String()
-		alias := transportAlias(a.Transport)
-		if !containsSubstring(f.TransportNames, transportStr) && !containsSubstring(f.TransportNames, alias) {
-			return false
-		}
-	}
-	return true
+	transportStr := a.Transport.String()
+	alias := transportAlias(a.Transport)
+	return containsSubstring(f.TransportNames, transportStr) || containsSubstring(f.TransportNames, alias)
+}
+
+// MatchPipe reports whether a bare pipe name passes the pipe-name filter.
+func (f *Filter) MatchPipe(pipe string) bool {
+	return f.matchStrings(f.PipeNames, pipe)
 }
 
 func (f *Filter) matchStrings(filters []string, value string) bool {
