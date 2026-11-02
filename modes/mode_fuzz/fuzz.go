@@ -39,6 +39,7 @@ type Options struct {
 	Delay      time.Duration
 	ExportJSON string
 	Timeout    time.Duration
+	PathIP     string
 }
 
 func Run(opts Options) []results.FuzzResult {
@@ -74,7 +75,7 @@ func Run(opts Options) []results.FuzzResult {
 
 	registry := methods.DefaultRegistry()
 	vars := methods.TemplateVars{
-		ListenerIP: listenIP,
+		ListenerIP: common.EffectivePathIP(opts.PathIP, listenIP),
 		SMBPort:    smbListenPort,
 		HTTPPort:   httpListenPort,
 	}
