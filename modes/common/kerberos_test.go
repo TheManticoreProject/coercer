@@ -37,8 +37,8 @@ func TestConfigureKerberosDisabled(t *testing.T) {
 	if err := ConfigureKerberos(&connOpts, creds, false, "", ""); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
-	if connOpts.Kerberos != nil || connOpts.SPN != "" {
-		t.Errorf("disabled Kerberos must not set client/SPN, got kc=%v spn=%q", connOpts.Kerberos, connOpts.SPN)
+	if connOpts.Kerberos != nil || connOpts.SPN != "" || connOpts.SMBSPN != "" {
+		t.Errorf("disabled Kerberos must not set client/SPN, got kc=%v spn=%q smbspn=%q", connOpts.Kerberos, connOpts.SPN, connOpts.SMBSPN)
 	}
 }
 
@@ -53,6 +53,9 @@ func TestConfigureKerberosEnabledBuildsSPN(t *testing.T) {
 	}
 	if connOpts.SPN != "host/host.corp.local" {
 		t.Errorf("SPN = %q, want %q", connOpts.SPN, "host/host.corp.local")
+	}
+	if connOpts.SMBSPN != "cifs/host.corp.local" {
+		t.Errorf("SMBSPN = %q, want %q", connOpts.SMBSPN, "cifs/host.corp.local")
 	}
 }
 

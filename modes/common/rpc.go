@@ -31,6 +31,11 @@ type ConnectOpts struct {
 	// binds use NTLMSSP.
 	Kerberos *kerberos.KerberosClient
 	SPN      string
+	// SMBSPN is the service principal name of the SMB server (cifs/<target>),
+	// used to authenticate the named-pipe SMB session with Kerberos when
+	// Kerberos is non-nil. It is separate from SPN (host/<target>), which
+	// authenticates the DCE/RPC bind.
+	SMBSPN string
 }
 
 // NewKerberosClient builds a Kerberos client from the given credentials,
@@ -92,6 +97,7 @@ func ConfigureKerberos(connOpts *ConnectOpts, creds *credentials.Credentials, en
 	}
 	connOpts.Kerberos = kc
 	connOpts.SPN = "host/" + connOpts.Target
+	connOpts.SMBSPN = "cifs/" + connOpts.Target
 	return nil
 }
 
@@ -204,7 +210,15 @@ func connectNamedPipe(opts ConnectOpts, access methods.Access, creds *credential
 		return nil, nil, fmt.Errorf("smb connect: %w", err)
 	}
 
-	if err := smb.SessionSetup(creds); err != nil {
+	if opts.Kerberos != nil {
+		// Mirror the RPC bind: authenticate the SMB session with Kerberos too,
+		// so Kerberos-only credentials (ccache/kirbi/keytab/AES key) work over
+		// the named-pipe transport. The SMB service SPN is cifs/<target>.
+		if err := smb.SessionSetupKerberosWithClient(opts.Kerberos, opts.SMBSPN); err != nil {
+			smb.Disconnect()
+			return nil, nil, fmt.Errorf("smb kerberos session: %w", err)
+		}
+	} else if err := smb.SessionSetup(creds); err != nil {
 		smb.Disconnect()
 		return nil, nil, fmt.Errorf("smb session: %w", err)
 	}
