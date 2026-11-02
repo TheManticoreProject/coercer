@@ -138,6 +138,9 @@ func Run(opts Options) []results.MethodResult {
 				if opts.AuthType != "http" && ep.AuthType != methods.AuthSMB {
 					continue
 				}
+				if !opts.Filter.MatchExploitPath(ep) {
+					continue
+				}
 
 				exploitPath := methods.RenderPath(ep.Template, vars)
 				logger.Info(fmt.Sprintf("    %s", m.FormatCall(exploitPath)))

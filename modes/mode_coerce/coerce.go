@@ -98,6 +98,9 @@ func Run(opts Options) []results.MethodResult {
 				if stopped {
 					break
 				}
+				if !opts.Filter.MatchExploitPath(ep) {
+					continue
+				}
 
 				exploitPath := methods.RenderPath(ep.Template, vars)
 				logger.Info(fmt.Sprintf("    %s", m.FormatCall(exploitPath)))

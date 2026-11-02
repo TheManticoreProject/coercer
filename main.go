@@ -88,7 +88,8 @@ var (
 	delay int
 
 	// Paths
-	pathIP string
+	pathIP   string
+	pathType string
 )
 
 func parseArgs() {
@@ -104,7 +105,7 @@ func parseArgs() {
 
 	// --- scan ---
 	subScan := ap.AddSubParser("scan", "Scan for vulnerable coercion methods with known exploit paths.")
-	cli.RegisterCommonGroups(subScan, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
+	cli.RegisterCommonGroups(subScan, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
 	cli.RegisterListenerGroup(subScan, &scanListenerInterface, &scanListenerIP, &scanAuthType)
 	cli.RegisterExportGroup(subScan, &scanExportJSON, &scanExportXLSX, &scanExportSQLite)
 	registerScanOptions(subScan)
@@ -112,14 +113,14 @@ func parseArgs() {
 
 	// --- coerce ---
 	subCoerce := ap.AddSubParser("coerce", "Trigger authentication coercion to an external listener.")
-	cli.RegisterCommonGroups(subCoerce, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
+	cli.RegisterCommonGroups(subCoerce, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
 	cli.RegisterExportGroup(subCoerce, &coerceExportJSON, &coerceExportXLSX, &coerceExportSQLite)
 	registerCoerceOptions(subCoerce)
 	registerConnectionOptions(subCoerce)
 
 	// --- fuzz ---
 	subFuzz := ap.AddSubParser("fuzz", "Fuzz exploit paths and auth levels against all methods.")
-	cli.RegisterCommonGroups(subFuzz, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
+	cli.RegisterCommonGroups(subFuzz, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
 	cli.RegisterListenerGroup(subFuzz, &fuzzListenerInterface, &fuzzListenerIP, &fuzzAuthType)
 	cli.RegisterExportGroup(subFuzz, &fuzzExportJSON, &fuzzExportXLSX, &fuzzExportSQLite)
 	registerFuzzOptions(subFuzz)
@@ -208,6 +209,11 @@ func main() {
 		return
 	}
 
+	if !filter.ValidPathType(pathType) {
+		logger.Warn(fmt.Sprintf("Invalid --path-type %q: choose smb or webdav.", pathType))
+		os.Exit(1)
+	}
+
 	if err := cli.ResolvePassword(authDomain, authUsername, &authPassword, authNoPass, authHashes); err != nil {
 		logger.Warn(err.Error())
 		os.Exit(1)
@@ -223,6 +229,7 @@ func main() {
 		ProtocolNames:  filterProtocol,
 		PipeNames:      filterPipe,
 		TransportNames: filterTransport,
+		PathType:       pathType,
 	}
 
 	timeout := time.Duration(connTimeout) * time.Second
