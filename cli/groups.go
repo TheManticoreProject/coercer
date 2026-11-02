@@ -29,6 +29,7 @@ func DelayDuration(seconds int) time.Duration {
 //	targetsFile (*string): File with target hosts.
 //	smbPort (*int): SMB port.
 //	dcePort (*int): DCERPC EPM port.
+//	httpPort (*int): HTTP listener / exploit-path port.
 //	authDomain (*string): The domain to authenticate to.
 //	authUsername (*string): The user to authenticate as.
 //	authPassword (*string): The password to authenticate with.
@@ -40,11 +41,11 @@ func DelayDuration(seconds int) time.Duration {
 //	filterTransport (*[]string): Filter by transport.
 //	delay (*int): Delay between attempts in seconds.
 //	pathIP (*string): IP to substitute into generated exploit paths (overrides the listener IP).
-func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, delay *int, pathIP *string) {
+func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, httpPort *int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, delay *int, pathIP *string) {
 	RegisterConfigurationGroup(subparser, debug, logFile, disableEscapeCodes)
 	RegisterTargetGroup(subparser, targetHost, targetsFile)
 	RegisterAuthenticationGroup(subparser, authDomain, authUsername, authPassword, authHashes, authNoPass)
-	RegisterConnectionGroup(subparser, smbPort, dcePort)
+	RegisterConnectionGroup(subparser, smbPort, dcePort, httpPort)
 	RegisterFilterGroup(subparser, filterMethod, filterProtocol, filterPipe, filterTransport)
 	RegisterTimingGroup(subparser, delay)
 	RegisterPathGroup(subparser, pathIP)
@@ -131,7 +132,8 @@ func RegisterAuthenticationGroup(subparser *parser.ArgumentsParser, authDomain *
 //	subparser (*parser.ArgumentsParser): The parser to register the group on.
 //	smbPort (*int): SMB port.
 //	dcePort (*int): DCERPC EPM port.
-func RegisterConnectionGroup(subparser *parser.ArgumentsParser, smbPort *int, dcePort *int) {
+//	httpPort (*int): HTTP listener / exploit-path port.
+func RegisterConnectionGroup(subparser *parser.ArgumentsParser, smbPort *int, dcePort *int, httpPort *int) {
 	group, err := subparser.NewArgumentGroup("Connection")
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Error creating ArgumentGroup: %s", err))
@@ -139,6 +141,7 @@ func RegisterConnectionGroup(subparser *parser.ArgumentsParser, smbPort *int, dc
 	}
 	group.NewTcpPortArgument(smbPort, "", "--smb-port", 445, false, "SMB port.")
 	group.NewTcpPortArgument(dcePort, "", "--dce-port", 135, false, "DCERPC endpoint mapper port.")
+	group.NewTcpPortArgument(httpPort, "", "--http-port", 80, false, "HTTP listener and exploit-path port.")
 }
 
 // RegisterFilterGroup registers the "Filter" argument group.

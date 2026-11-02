@@ -27,8 +27,9 @@ type Options struct {
 	Password string
 	Hashes   string
 
-	SMBPort int
-	DCEPort int
+	SMBPort  int
+	DCEPort  int
+	HTTPPort int
 
 	Filter     filter.Filter
 	Delay      time.Duration
@@ -39,10 +40,14 @@ type Options struct {
 
 func Run(opts Options) []results.MethodResult {
 	registry := methods.DefaultRegistry()
+	httpPort := opts.HTTPPort
+	if httpPort == 0 {
+		httpPort = 80
+	}
 	vars := methods.TemplateVars{
 		ListenerIP: common.EffectivePathIP(opts.PathIP, opts.ListenerIP),
 		SMBPort:    445,
-		HTTPPort:   80,
+		HTTPPort:   httpPort,
 	}
 
 	creds, err := credentials.NewCredentials(opts.Domain, opts.Username, opts.Password, opts.Hashes)

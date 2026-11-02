@@ -32,8 +32,9 @@ type Options struct {
 	Password string
 	Hashes   string
 
-	SMBPort int
-	DCEPort int
+	SMBPort  int
+	DCEPort  int
+	HTTPPort int
 
 	Filter     filter.Filter
 	Delay      time.Duration
@@ -50,7 +51,10 @@ func Run(opts Options) []results.FuzzResult {
 	}
 
 	smbListenPort := 445
-	httpListenPort := 80
+	httpListenPort := opts.HTTPPort
+	if httpListenPort == 0 {
+		httpListenPort = 80
+	}
 
 	var lis listener.Listener
 	switch opts.AuthType {
