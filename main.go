@@ -40,6 +40,7 @@ var (
 	smbPort     int
 	dcePort     int
 	httpPort    int
+	dcePorts    []int
 	connTimeout int
 
 	// Filtering
@@ -100,7 +101,7 @@ func parseArgs() {
 
 	// --- scan ---
 	subScan := ap.AddSubParser("scan", "Scan for vulnerable coercion methods with known exploit paths.")
-	cli.RegisterCommonGroups(subScan, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
+	cli.RegisterCommonGroups(subScan, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
 	cli.RegisterListenerGroup(subScan, &scanListenerInterface, &scanListenerIP, &scanAuthType)
 	cli.RegisterExportGroup(subScan, &scanExportJSON, &scanExportXLSX, &scanExportSQLite)
 	registerScanOptions(subScan)
@@ -108,14 +109,14 @@ func parseArgs() {
 
 	// --- coerce ---
 	subCoerce := ap.AddSubParser("coerce", "Trigger authentication coercion to an external listener.")
-	cli.RegisterCommonGroups(subCoerce, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
+	cli.RegisterCommonGroups(subCoerce, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
 	cli.RegisterExportGroup(subCoerce, &coerceExportJSON, &coerceExportXLSX, &coerceExportSQLite)
 	registerCoerceOptions(subCoerce)
 	registerConnectionOptions(subCoerce)
 
 	// --- fuzz ---
 	subFuzz := ap.AddSubParser("fuzz", "Fuzz exploit paths and auth levels against all methods.")
-	cli.RegisterCommonGroups(subFuzz, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
+	cli.RegisterCommonGroups(subFuzz, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
 	cli.RegisterListenerGroup(subFuzz, &fuzzListenerInterface, &fuzzListenerIP, &fuzzAuthType)
 	cli.RegisterExportGroup(subFuzz, &fuzzExportJSON, &fuzzExportXLSX, &fuzzExportSQLite)
 	registerFuzzOptions(subFuzz)
@@ -244,6 +245,7 @@ func main() {
 				Hashes:            authHashes,
 				SMBPort:           smbPort,
 				DCEPort:           dcePort,
+				DCEPorts:          dcePorts,
 				HTTPPort:          httpPort,
 				Filter:            f,
 				Delay:             cli.DelayDuration(delay),
@@ -273,6 +275,7 @@ func main() {
 				Hashes:         authHashes,
 				SMBPort:        smbPort,
 				DCEPort:        dcePort,
+				DCEPorts:       dcePorts,
 				HTTPPort:       httpPort,
 				Filter:         f,
 				Delay:          cli.DelayDuration(delay),
@@ -305,6 +308,7 @@ func main() {
 				Hashes:            authHashes,
 				SMBPort:           smbPort,
 				DCEPort:           dcePort,
+				DCEPorts:          dcePorts,
 				HTTPPort:          httpPort,
 				Filter:            f,
 				Delay:             cli.DelayDuration(delay),

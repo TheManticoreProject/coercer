@@ -33,6 +33,7 @@ type Options struct {
 
 	SMBPort  int
 	DCEPort  int
+	DCEPorts []int
 	HTTPPort int
 
 	Filter       filter.Filter
@@ -95,6 +96,7 @@ func Run(opts Options) []results.MethodResult {
 		Target:  opts.Target,
 		SMBPort: opts.SMBPort,
 		DCEPort: opts.DCEPort,
+		DCEPorts: opts.DCEPorts,
 		Timeout: opts.Timeout,
 	}
 
