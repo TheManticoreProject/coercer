@@ -36,12 +36,13 @@ type Options struct {
 	DCEPort  int
 	HTTPPort int
 
-	Filter     filter.Filter
-	Delay      time.Duration
-	ExportJSON string
-	ExportXLSX string
-	Timeout    time.Duration
-	PathIP     string
+	Filter       filter.Filter
+	Delay        time.Duration
+	ExportJSON   string
+	ExportXLSX   string
+	ExportSQLite string
+	Timeout      time.Duration
+	PathIP       string
 }
 
 func Run(opts Options) []results.FuzzResult {
@@ -201,6 +202,13 @@ func Run(opts Options) []results.FuzzResult {
 			logger.Warn(fmt.Sprintf("Cannot write XLSX export: %s", err))
 		} else {
 			logger.Info(fmt.Sprintf("  Results exported to %s", opts.ExportXLSX))
+		}
+	}
+	if opts.ExportSQLite != "" {
+		if err := results.ExportFuzzSQLite(opts.ExportSQLite, allResults); err != nil {
+			logger.Warn(fmt.Sprintf("Cannot write SQLite export: %s", err))
+		} else {
+			logger.Info(fmt.Sprintf("  Results exported to %s", opts.ExportSQLite))
 		}
 	}
 
