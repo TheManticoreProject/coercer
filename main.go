@@ -54,6 +54,7 @@ var (
 	scanAuthType          string
 	scanExportJSON        string
 	scanExportXLSX        string
+	scanExportSQLite      string
 	scanStopOnAuth        bool
 
 	// Coerce-specific
@@ -61,6 +62,7 @@ var (
 	coerceAlwaysContinue bool
 	coerceExportJSON     string
 	coerceExportXLSX     string
+	coerceExportSQLite   string
 
 	// Fuzz-specific
 	fuzzListenerInterface string
@@ -68,6 +70,7 @@ var (
 	fuzzAuthType          string
 	fuzzExportJSON        string
 	fuzzExportXLSX        string
+	fuzzExportSQLite      string
 	fuzzOnlyKnownPaths    bool
 	fuzzAuth              bool
 
@@ -99,14 +102,14 @@ func parseArgs() {
 	subScan := ap.AddSubParser("scan", "Scan for vulnerable coercion methods with known exploit paths.")
 	cli.RegisterCommonGroups(subScan, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
 	cli.RegisterListenerGroup(subScan, &scanListenerInterface, &scanListenerIP, &scanAuthType)
-	cli.RegisterExportGroup(subScan, &scanExportJSON, &scanExportXLSX)
+	cli.RegisterExportGroup(subScan, &scanExportJSON, &scanExportXLSX, &scanExportSQLite)
 	registerScanOptions(subScan)
 	registerConnectionOptions(subScan)
 
 	// --- coerce ---
 	subCoerce := ap.AddSubParser("coerce", "Trigger authentication coercion to an external listener.")
 	cli.RegisterCommonGroups(subCoerce, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
-	cli.RegisterExportGroup(subCoerce, &coerceExportJSON, &coerceExportXLSX)
+	cli.RegisterExportGroup(subCoerce, &coerceExportJSON, &coerceExportXLSX, &coerceExportSQLite)
 	registerCoerceOptions(subCoerce)
 	registerConnectionOptions(subCoerce)
 
@@ -114,7 +117,7 @@ func parseArgs() {
 	subFuzz := ap.AddSubParser("fuzz", "Fuzz exploit paths and auth levels against all methods.")
 	cli.RegisterCommonGroups(subFuzz, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &delay, &pathIP)
 	cli.RegisterListenerGroup(subFuzz, &fuzzListenerInterface, &fuzzListenerIP, &fuzzAuthType)
-	cli.RegisterExportGroup(subFuzz, &fuzzExportJSON, &fuzzExportXLSX)
+	cli.RegisterExportGroup(subFuzz, &fuzzExportJSON, &fuzzExportXLSX, &fuzzExportSQLite)
 	registerFuzzOptions(subFuzz)
 	registerConnectionOptions(subFuzz)
 
@@ -246,6 +249,7 @@ func main() {
 				Delay:             cli.DelayDuration(delay),
 				ExportJSON:        scanExportJSON,
 				ExportXLSX:        scanExportXLSX,
+				ExportSQLite:      scanExportSQLite,
 				Timeout:           timeout,
 				PathIP:            pathIP,
 			})
@@ -274,6 +278,7 @@ func main() {
 				Delay:          cli.DelayDuration(delay),
 				ExportJSON:     coerceExportJSON,
 				ExportXLSX:     coerceExportXLSX,
+				ExportSQLite:   coerceExportSQLite,
 				Timeout:        timeout,
 				PathIP:         pathIP,
 			})
@@ -305,6 +310,7 @@ func main() {
 				Delay:             cli.DelayDuration(delay),
 				ExportJSON:        fuzzExportJSON,
 				ExportXLSX:        fuzzExportXLSX,
+				ExportSQLite:      fuzzExportSQLite,
 				Timeout:           timeout,
 				PathIP:            pathIP,
 			})
