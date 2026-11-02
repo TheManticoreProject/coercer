@@ -34,10 +34,12 @@ type Options struct {
 	KDCHost  string
 	AESKey   string
 
-	SMBPort  int
-	DCEPort  int
-	DCEPorts []int
-	HTTPPort int
+	SMBPort     int
+	DCEPort     int
+	DCEPorts    []int
+	HTTPPort    int
+	MinHTTPPort int
+	MaxHTTPPort int
 
 	Filter       filter.Filter
 	Delay        time.Duration
@@ -56,9 +58,10 @@ func Run(opts Options) []results.MethodResult {
 	}
 
 	smbListenPort := 445
-	httpListenPort := opts.HTTPPort
-	if httpListenPort == 0 {
-		httpListenPort = 80
+	httpListenPort, err := common.ResolveHTTPListenPort(listenIP, opts.HTTPPort, opts.MinHTTPPort, opts.MaxHTTPPort)
+	if err != nil {
+		logger.Warn(fmt.Sprintf("Cannot select HTTP listener port: %s", err))
+		return nil
 	}
 
 	var lis listener.Listener
@@ -80,7 +83,11 @@ func Run(opts Options) []results.MethodResult {
 	}
 	defer lis.Stop()
 
-	logger.Info(fmt.Sprintf("  Listener started on %s (type: %s)", listenIP, opts.AuthType))
+	if opts.AuthType == "http" {
+		logger.Info(fmt.Sprintf("  Listener started on %s:%d (type: http)", listenIP, httpListenPort))
+	} else {
+		logger.Info(fmt.Sprintf("  Listener started on %s:%d (type: smb)", listenIP, smbListenPort))
+	}
 
 	registry := methods.DefaultRegistry()
 	vars := methods.TemplateVars{

@@ -30,6 +30,8 @@ func DelayDuration(seconds int) time.Duration {
 //	smbPort (*int): SMB port.
 //	dcePort (*int): DCERPC EPM port.
 //	httpPort (*int): HTTP listener / exploit-path port.
+//	minHTTPPort (*int): Low bound of a random HTTP listener port range.
+//	maxHTTPPort (*int): High bound of a random HTTP listener port range.
 //	authDomain (*string): The domain to authenticate to.
 //	authUsername (*string): The user to authenticate as.
 //	authPassword (*string): The password to authenticate with.
@@ -42,11 +44,11 @@ func DelayDuration(seconds int) time.Duration {
 //	pathType (*string): Restrict generated UNC paths to "smb" or "webdav".
 //	delay (*int): Delay between attempts in seconds.
 //	pathIP (*string): IP to substitute into generated exploit paths (overrides the listener IP).
-func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, httpPort *int, dcePorts *[]int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, authKerberos *bool, authDCIP *string, authAESKey *string, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, pathType *string, delay *int, pathIP *string) {
+func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, httpPort *int, minHTTPPort *int, maxHTTPPort *int, dcePorts *[]int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, authKerberos *bool, authDCIP *string, authAESKey *string, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, pathType *string, delay *int, pathIP *string) {
 	RegisterConfigurationGroup(subparser, debug, logFile, disableEscapeCodes)
 	RegisterTargetGroup(subparser, targetHost, targetsFile)
 	RegisterAuthenticationGroup(subparser, authDomain, authUsername, authPassword, authHashes, authNoPass, authKerberos, authDCIP, authAESKey)
-	RegisterConnectionGroup(subparser, smbPort, dcePort, httpPort, dcePorts)
+	RegisterConnectionGroup(subparser, smbPort, dcePort, httpPort, minHTTPPort, maxHTTPPort, dcePorts)
 	RegisterFilterGroup(subparser, filterMethod, filterProtocol, filterPipe, filterTransport, pathType)
 	RegisterTimingGroup(subparser, delay)
 	RegisterPathGroup(subparser, pathIP)
@@ -137,7 +139,9 @@ func RegisterAuthenticationGroup(subparser *parser.ArgumentsParser, authDomain *
 //	smbPort (*int): SMB port.
 //	dcePort (*int): DCERPC EPM port.
 //	httpPort (*int): HTTP listener / exploit-path port.
-func RegisterConnectionGroup(subparser *parser.ArgumentsParser, smbPort *int, dcePort *int, httpPort *int, dcePorts *[]int) {
+//	minHTTPPort (*int): Low bound of a random HTTP listener port range.
+//	maxHTTPPort (*int): High bound of a random HTTP listener port range.
+func RegisterConnectionGroup(subparser *parser.ArgumentsParser, smbPort *int, dcePort *int, httpPort *int, minHTTPPort *int, maxHTTPPort *int, dcePorts *[]int) {
 	group, err := subparser.NewArgumentGroup("Connection")
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Error creating ArgumentGroup: %s", err))
@@ -146,6 +150,8 @@ func RegisterConnectionGroup(subparser *parser.ArgumentsParser, smbPort *int, dc
 	group.NewTcpPortArgument(smbPort, "", "--smb-port", 445, false, "SMB port.")
 	group.NewTcpPortArgument(dcePort, "", "--dce-port", 135, false, "DCERPC endpoint mapper port.")
 	group.NewTcpPortArgument(httpPort, "", "--http-port", 80, false, "HTTP listener and exploit-path port.")
+	group.NewTcpPortArgument(minHTTPPort, "", "--min-http-port", 0, false, "Low bound of a random HTTP listener port range (with --max-http-port).")
+	group.NewTcpPortArgument(maxHTTPPort, "", "--max-http-port", 0, false, "High bound of a random HTTP listener port range (with --min-http-port).")
 	group.NewListOfIntsArgument(dcePorts, "", "--dce-ports", []int{}, false, "Explicit DCERPC TCP ports to try (skips endpoint-mapper discovery).")
 }
 
