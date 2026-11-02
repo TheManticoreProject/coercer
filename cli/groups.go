@@ -41,10 +41,10 @@ func DelayDuration(seconds int) time.Duration {
 //	filterTransport (*[]string): Filter by transport.
 //	delay (*int): Delay between attempts in seconds.
 //	pathIP (*string): IP to substitute into generated exploit paths (overrides the listener IP).
-func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, httpPort *int, dcePorts *[]int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, delay *int, pathIP *string) {
+func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, httpPort *int, dcePorts *[]int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, authKerberos *bool, authDCIP *string, authAESKey *string, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, delay *int, pathIP *string) {
 	RegisterConfigurationGroup(subparser, debug, logFile, disableEscapeCodes)
 	RegisterTargetGroup(subparser, targetHost, targetsFile)
-	RegisterAuthenticationGroup(subparser, authDomain, authUsername, authPassword, authHashes, authNoPass)
+	RegisterAuthenticationGroup(subparser, authDomain, authUsername, authPassword, authHashes, authNoPass, authKerberos, authDCIP, authAESKey)
 	RegisterConnectionGroup(subparser, smbPort, dcePort, httpPort, dcePorts)
 	RegisterFilterGroup(subparser, filterMethod, filterProtocol, filterPipe, filterTransport)
 	RegisterTimingGroup(subparser, delay)
@@ -112,7 +112,7 @@ func RegisterTargetGroup(subparser *parser.ArgumentsParser, targetHost *string, 
 //	authPassword (*string): The password to authenticate with.
 //	authHashes (*string): The LM:NT hashes to authenticate with.
 //	authNoPass (*bool): Whether to skip the password prompt.
-func RegisterAuthenticationGroup(subparser *parser.ArgumentsParser, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool) {
+func RegisterAuthenticationGroup(subparser *parser.ArgumentsParser, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, authKerberos *bool, authDCIP *string, authAESKey *string) {
 	group, err := subparser.NewArgumentGroup("Authentication")
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Error creating ArgumentGroup: %s", err))
@@ -123,6 +123,9 @@ func RegisterAuthenticationGroup(subparser *parser.ArgumentsParser, authDomain *
 	group.NewStringArgument(authPassword, "-p", "--password", "", false, "Password to authenticate with.")
 	group.NewStringArgument(authHashes, "-H", "--hashes", "", false, "NT/LM hashes, format is LMhash:NThash.")
 	group.NewBoolArgument(authNoPass, "", "--no-pass", false, "Do not ask for a password, bind without one.")
+	group.NewBoolArgument(authKerberos, "-k", "--kerberos", false, "Use Kerberos authentication for RPC binds (target must be an FQDN).")
+	group.NewStringArgument(authDCIP, "", "--dc-ip", "", false, "KDC / domain controller address for Kerberos (default: resolve from domain).")
+	group.NewStringArgument(authAESKey, "", "--aes-key", "", false, "AES128/256 key for Kerberos (pass-the-key).")
 }
 
 // RegisterConnectionGroup registers the "Connection" argument group.
