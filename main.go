@@ -22,6 +22,8 @@ import (
 var (
 	mode               string
 	debug              bool
+	verbose            bool
+	minimumLogLevel    string
 	logFile            string
 	disableEscapeCodes bool
 
@@ -102,12 +104,12 @@ func parseArgs() {
 
 	// --- list ---
 	subList := ap.AddSubParser("list", "List available coercion methods and access paths.")
-	cli.RegisterConfigurationGroup(subList, &debug, &logFile, &disableEscapeCodes)
+	cli.RegisterConfigurationGroup(subList, &debug, &verbose, &minimumLogLevel, &logFile, &disableEscapeCodes)
 	registerListOptions(subList)
 
 	// --- scan ---
 	subScan := ap.AddSubParser("scan", "Scan for vulnerable coercion methods with known exploit paths.")
-	cli.RegisterCommonGroups(subScan, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
+	cli.RegisterCommonGroups(subScan, &debug, &verbose, &minimumLogLevel, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
 	cli.RegisterListenerGroup(subScan, &scanListenerInterface, &scanListenerIP, &scanAuthType)
 	cli.RegisterExportGroup(subScan, &scanExportJSON, &scanExportXLSX, &scanExportSQLite)
 	registerScanOptions(subScan)
@@ -115,14 +117,14 @@ func parseArgs() {
 
 	// --- coerce ---
 	subCoerce := ap.AddSubParser("coerce", "Trigger authentication coercion to an external listener.")
-	cli.RegisterCommonGroups(subCoerce, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
+	cli.RegisterCommonGroups(subCoerce, &debug, &verbose, &minimumLogLevel, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
 	cli.RegisterExportGroup(subCoerce, &coerceExportJSON, &coerceExportXLSX, &coerceExportSQLite)
 	registerCoerceOptions(subCoerce)
 	registerConnectionOptions(subCoerce)
 
 	// --- fuzz ---
 	subFuzz := ap.AddSubParser("fuzz", "Fuzz exploit paths and auth levels against all methods.")
-	cli.RegisterCommonGroups(subFuzz, &debug, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
+	cli.RegisterCommonGroups(subFuzz, &debug, &verbose, &minimumLogLevel, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
 	cli.RegisterListenerGroup(subFuzz, &fuzzListenerInterface, &fuzzListenerIP, &fuzzAuthType)
 	cli.RegisterExportGroup(subFuzz, &fuzzExportJSON, &fuzzExportXLSX, &fuzzExportSQLite)
 	registerFuzzOptions(subFuzz)
@@ -193,9 +195,12 @@ func main() {
 		}
 	}
 
-	if !debug {
-		logger.SetLevel(logger.LevelInfo)
+	level, ok := cli.ResolveLogLevel(verbose, debug, minimumLogLevel)
+	if !ok {
+		logger.Warn(fmt.Sprintf("Invalid --minimum-log-level %q: choose debug, info, warn or error.", minimumLogLevel))
+		os.Exit(1)
 	}
+	logger.SetLevel(level)
 
 	if mode == "list" {
 		logger.Info("Available coercion methods:")

@@ -23,6 +23,8 @@ func DelayDuration(seconds int) time.Duration {
 //
 //	subparser (*parser.ArgumentsParser): The parser to register the groups on.
 //	debug (*bool): Whether to print debug information.
+//	verbose (*bool): Whether to show debug-level detail.
+//	minimumLogLevel (*string): Minimum log level to emit (debug, info, warn, error).
 //	logFile (*string): Path to additionally write ANSI-stripped output to.
 //	disableEscapeCodes (*bool): Whether to disable ANSI escape codes (colors).
 //	targetHost (*string): Target host IP or hostname.
@@ -44,8 +46,8 @@ func DelayDuration(seconds int) time.Duration {
 //	pathType (*string): Restrict generated UNC paths to "smb" or "webdav".
 //	delay (*int): Delay between attempts in seconds.
 //	pathIP (*string): IP to substitute into generated exploit paths (overrides the listener IP).
-func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, httpPort *int, minHTTPPort *int, maxHTTPPort *int, dcePorts *[]int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, authKerberos *bool, authDCIP *string, authAESKey *string, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, pathType *string, delay *int, pathIP *string) {
-	RegisterConfigurationGroup(subparser, debug, logFile, disableEscapeCodes)
+func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, verbose *bool, minimumLogLevel *string, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, httpPort *int, minHTTPPort *int, maxHTTPPort *int, dcePorts *[]int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, authKerberos *bool, authDCIP *string, authAESKey *string, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, pathType *string, delay *int, pathIP *string) {
+	RegisterConfigurationGroup(subparser, debug, verbose, minimumLogLevel, logFile, disableEscapeCodes)
 	RegisterTargetGroup(subparser, targetHost, targetsFile)
 	RegisterAuthenticationGroup(subparser, authDomain, authUsername, authPassword, authHashes, authNoPass, authKerberos, authDCIP, authAESKey)
 	RegisterConnectionGroup(subparser, smbPort, dcePort, httpPort, minHTTPPort, maxHTTPPort, dcePorts)
@@ -75,15 +77,19 @@ func RegisterPathGroup(subparser *parser.ArgumentsParser, pathIP *string) {
 //
 //	subparser (*parser.ArgumentsParser): The parser to register the group on.
 //	debug (*bool): Whether to print debug information.
+//	verbose (*bool): Whether to show debug-level detail.
+//	minimumLogLevel (*string): Minimum log level to emit (debug, info, warn, error).
 //	logFile (*string): Path to additionally write ANSI-stripped output to.
 //	disableEscapeCodes (*bool): Whether to disable ANSI escape codes (colors).
-func RegisterConfigurationGroup(subparser *parser.ArgumentsParser, debug *bool, logFile *string, disableEscapeCodes *bool) {
+func RegisterConfigurationGroup(subparser *parser.ArgumentsParser, debug *bool, verbose *bool, minimumLogLevel *string, logFile *string, disableEscapeCodes *bool) {
 	group, err := subparser.NewArgumentGroup("Configuration")
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Error creating ArgumentGroup: %s", err))
 		return
 	}
 	group.NewBoolArgument(debug, "", "--debug", false, "Debug mode.")
+	group.NewBoolArgument(verbose, "-v", "--verbose", false, "Verbose output (show debug-level detail).")
+	group.NewStringArgument(minimumLogLevel, "", "--minimum-log-level", "", false, "Minimum log level to emit: debug, info, warn or error.")
 	group.NewStringArgument(logFile, "", "--log-file", "", false, "Also write output (ANSI-stripped) to this log file.")
 	group.NewBoolArgument(disableEscapeCodes, "", "--disable-escape-codes", false, "Disable ANSI escape codes (colors) in output.")
 }
