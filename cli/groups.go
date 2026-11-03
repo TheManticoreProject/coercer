@@ -29,6 +29,7 @@ func DelayDuration(seconds int) time.Duration {
 //	disableEscapeCodes (*bool): Whether to disable ANSI escape codes (colors).
 //	targetHost (*string): Target host IP or hostname.
 //	targetsFile (*string): File with target hosts.
+//	targetsFileAlias (*string): -f alias of --targets-file.
 //	smbPort (*int): SMB port.
 //	dcePort (*int): DCERPC EPM port.
 //	httpPort (*int): HTTP listener / exploit-path port.
@@ -40,18 +41,19 @@ func DelayDuration(seconds int) time.Duration {
 //	authHashes (*string): The LM:NT hashes to authenticate with.
 //	authNoPass (*bool): Whether to skip the password prompt.
 //	filterMethod (*[]string): Filter by method name.
+//	filterMethodName (*[]string): --filter-method-name alias of --filter-method.
 //	filterProtocol (*[]string): Filter by protocol name.
 //	filterPipe (*[]string): Filter by pipe name.
 //	filterTransport (*[]string): Filter by transport.
 //	pathType (*string): Restrict generated UNC paths to "smb" or "webdav".
 //	delay (*int): Delay between attempts in seconds.
 //	pathIP (*string): IP to substitute into generated exploit paths (overrides the listener IP).
-func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, verbose *bool, minimumLogLevel *string, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, smbPort *int, dcePort *int, httpPort *int, minHTTPPort *int, maxHTTPPort *int, dcePorts *[]int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, authKerberos *bool, authDCIP *string, authAESKey *string, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, pathType *string, delay *int, pathIP *string) {
+func RegisterCommonGroups(subparser *parser.ArgumentsParser, debug *bool, verbose *bool, minimumLogLevel *string, logFile *string, disableEscapeCodes *bool, targetHost *string, targetsFile *string, targetsFileAlias *string, smbPort *int, dcePort *int, httpPort *int, minHTTPPort *int, maxHTTPPort *int, dcePorts *[]int, authDomain *string, authUsername *string, authPassword *string, authHashes *string, authNoPass *bool, authKerberos *bool, authDCIP *string, authAESKey *string, filterMethod *[]string, filterMethodName *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, pathType *string, delay *int, pathIP *string) {
 	RegisterConfigurationGroup(subparser, debug, verbose, minimumLogLevel, logFile, disableEscapeCodes)
-	RegisterTargetGroup(subparser, targetHost, targetsFile)
+	RegisterTargetGroup(subparser, targetHost, targetsFile, targetsFileAlias)
 	RegisterAuthenticationGroup(subparser, authDomain, authUsername, authPassword, authHashes, authNoPass, authKerberos, authDCIP, authAESKey)
 	RegisterConnectionGroup(subparser, smbPort, dcePort, httpPort, minHTTPPort, maxHTTPPort, dcePorts)
-	RegisterFilterGroup(subparser, filterMethod, filterProtocol, filterPipe, filterTransport, pathType)
+	RegisterFilterGroup(subparser, filterMethod, filterMethodName, filterProtocol, filterPipe, filterTransport, pathType)
 	RegisterTimingGroup(subparser, delay)
 	RegisterPathGroup(subparser, pathIP)
 }
@@ -101,7 +103,8 @@ func RegisterConfigurationGroup(subparser *parser.ArgumentsParser, debug *bool, 
 //	subparser (*parser.ArgumentsParser): The parser to register the group on.
 //	targetHost (*string): Target host IP or hostname.
 //	targetsFile (*string): File with target hosts, one per line.
-func RegisterTargetGroup(subparser *parser.ArgumentsParser, targetHost *string, targetsFile *string) {
+//	targetsFileAlias (*string): -f alias of --targets-file (Coercer compatibility).
+func RegisterTargetGroup(subparser *parser.ArgumentsParser, targetHost *string, targetsFile *string, targetsFileAlias *string) {
 	group, err := subparser.NewRequiredMutuallyExclusiveArgumentGroup("Target")
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Error creating ArgumentGroup: %s", err))
@@ -109,6 +112,9 @@ func RegisterTargetGroup(subparser *parser.ArgumentsParser, targetHost *string, 
 	}
 	group.NewStringArgument(targetHost, "-t", "--target-ip", "", false, "Target host IP or hostname.")
 	group.NewStringArgument(targetsFile, "-tf", "--targets-file", "", false, "File with target hosts, one per line.")
+	// -f is a Coercer-compatible alias of --targets-file; it is reconciled into
+	// targetsFile after parsing.
+	group.NewStringArgument(targetsFileAlias, "-f", "", "", false, "Alias of --targets-file (Coercer compatibility).")
 }
 
 // RegisterAuthenticationGroup registers the "Authentication" argument group.
@@ -167,17 +173,19 @@ func RegisterConnectionGroup(subparser *parser.ArgumentsParser, smbPort *int, dc
 //
 //	subparser (*parser.ArgumentsParser): The parser to register the group on.
 //	filterMethod (*[]string): Filter by method name (substring, case-insensitive).
+//	filterMethodName (*[]string): --filter-method-name alias (Coercer compatibility).
 //	filterProtocol (*[]string): Filter by protocol name (substring, case-insensitive).
 //	filterPipe (*[]string): Filter by pipe name (substring, case-insensitive).
 //	filterTransport (*[]string): Filter by transport name.
 //	pathType (*string): Restrict generated UNC paths to "smb" or "webdav".
-func RegisterFilterGroup(subparser *parser.ArgumentsParser, filterMethod *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, pathType *string) {
+func RegisterFilterGroup(subparser *parser.ArgumentsParser, filterMethod *[]string, filterMethodName *[]string, filterProtocol *[]string, filterPipe *[]string, filterTransport *[]string, pathType *string) {
 	group, err := subparser.NewArgumentGroup("Filter")
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Error creating ArgumentGroup: %s", err))
 		return
 	}
 	group.NewListOfStringsArgument(filterMethod, "", "--filter-method", []string{}, false, "Filter by method name.")
+	group.NewListOfStringsArgument(filterMethodName, "", "--filter-method-name", []string{}, false, "Alias of --filter-method (Coercer compatibility).")
 	group.NewListOfStringsArgument(filterProtocol, "", "--filter-protocol", []string{}, false, "Filter by protocol name.")
 	group.NewListOfStringsArgument(filterPipe, "", "--filter-pipe", []string{}, false, "Filter by pipe name.")
 	group.NewListOfStringsArgument(filterTransport, "", "--filter-transport", []string{}, false, "Filter by transport (msrpc, dcerpc).")

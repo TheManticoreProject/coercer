@@ -38,8 +38,9 @@ var (
 	authAESKey   string
 
 	// Target
-	targetHost  string
-	targetsFile string
+	targetHost       string
+	targetsFile      string
+	targetsFileAlias string // -f, Coercer-compatible alias of --targets-file
 
 	// Connection
 	smbPort     int
@@ -51,10 +52,11 @@ var (
 	connTimeout int
 
 	// Filtering
-	filterMethod    []string
-	filterProtocol  []string
-	filterPipe      []string
-	filterTransport []string
+	filterMethod     []string
+	filterMethodName []string // --filter-method-name, Coercer-compatible alias of --filter-method
+	filterProtocol   []string
+	filterPipe       []string
+	filterTransport  []string
 
 	// Scan-specific
 	scanListenerInterface string
@@ -83,10 +85,11 @@ var (
 	fuzzAuth              bool
 
 	// List-specific
-	listFilterMethod    []string
-	listFilterProtocol  []string
-	listFilterPipe      []string
-	listFilterTransport []string
+	listFilterMethod     []string
+	listFilterMethodName []string // --filter-method-name alias, reconciled into listFilterMethod
+	listFilterProtocol   []string
+	listFilterPipe       []string
+	listFilterTransport  []string
 
 	// Timing
 	delay int
@@ -109,7 +112,7 @@ func parseArgs() {
 
 	// --- scan ---
 	subScan := ap.AddSubParser("scan", "Scan for vulnerable coercion methods with known exploit paths.")
-	cli.RegisterCommonGroups(subScan, &debug, &verbose, &minimumLogLevel, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
+	cli.RegisterCommonGroups(subScan, &debug, &verbose, &minimumLogLevel, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &targetsFileAlias, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterMethodName, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
 	cli.RegisterListenerGroup(subScan, &scanListenerInterface, &scanListenerIP, &scanAuthType)
 	cli.RegisterExportGroup(subScan, &scanExportJSON, &scanExportXLSX, &scanExportSQLite)
 	registerScanOptions(subScan)
@@ -117,14 +120,14 @@ func parseArgs() {
 
 	// --- coerce ---
 	subCoerce := ap.AddSubParser("coerce", "Trigger authentication coercion to an external listener.")
-	cli.RegisterCommonGroups(subCoerce, &debug, &verbose, &minimumLogLevel, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
+	cli.RegisterCommonGroups(subCoerce, &debug, &verbose, &minimumLogLevel, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &targetsFileAlias, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterMethodName, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
 	cli.RegisterExportGroup(subCoerce, &coerceExportJSON, &coerceExportXLSX, &coerceExportSQLite)
 	registerCoerceOptions(subCoerce)
 	registerConnectionOptions(subCoerce)
 
 	// --- fuzz ---
 	subFuzz := ap.AddSubParser("fuzz", "Fuzz exploit paths and auth levels against all methods.")
-	cli.RegisterCommonGroups(subFuzz, &debug, &verbose, &minimumLogLevel, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
+	cli.RegisterCommonGroups(subFuzz, &debug, &verbose, &minimumLogLevel, &logFile, &disableEscapeCodes, &targetHost, &targetsFile, &targetsFileAlias, &smbPort, &dcePort, &httpPort, &minHTTPPort, &maxHTTPPort, &dcePorts, &authDomain, &authUsername, &authPassword, &authHashes, &authNoPass, &authKerberos, &authDCIP, &authAESKey, &filterMethod, &filterMethodName, &filterProtocol, &filterPipe, &filterTransport, &pathType, &delay, &pathIP)
 	cli.RegisterListenerGroup(subFuzz, &fuzzListenerInterface, &fuzzListenerIP, &fuzzAuthType)
 	cli.RegisterExportGroup(subFuzz, &fuzzExportJSON, &fuzzExportXLSX, &fuzzExportSQLite)
 	registerFuzzOptions(subFuzz)
@@ -140,6 +143,7 @@ func registerListOptions(subparser *parser.ArgumentsParser) {
 		return
 	}
 	group.NewListOfStringsArgument(&listFilterMethod, "", "--filter-method", []string{}, false, "Filter by method name.")
+	group.NewListOfStringsArgument(&listFilterMethodName, "", "--filter-method-name", []string{}, false, "Alias of --filter-method (Coercer compatibility).")
 	group.NewListOfStringsArgument(&listFilterProtocol, "", "--filter-protocol", []string{}, false, "Filter by protocol name.")
 	group.NewListOfStringsArgument(&listFilterPipe, "", "--filter-pipe", []string{}, false, "Filter by pipe name.")
 	group.NewListOfStringsArgument(&listFilterTransport, "", "--filter-transport", []string{}, false, "Filter by transport.")
@@ -185,6 +189,13 @@ func registerConnectionOptions(subparser *parser.ArgumentsParser) {
 
 func main() {
 	parseArgs()
+
+	// Reconcile Coercer-compatible aliases into their canonical variables.
+	filterMethod = append(filterMethod, filterMethodName...)
+	listFilterMethod = append(listFilterMethod, listFilterMethodName...)
+	if targetsFileAlias != "" {
+		targetsFile = targetsFileAlias
+	}
 
 	if disableEscapeCodes {
 		logger.SetNoColors(true)
